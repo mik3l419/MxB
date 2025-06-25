@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel - FileHub</title>
+    <link rel="stylesheet" href="/style.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <!-- Password Modal -->
+    <div id="password-modal" class="password-modal">
+        <div class="password-modal-content">
+            <div class="password-header">
+                <h2><i class="fas fa-shield-alt"></i> Admin Access Required</h2>
+                <p>Please enter the admin password to continue</p>
+            </div>
+            <form id="password-form">
+                <div class="form-group">
+                    <input type="password" id="modal-password" placeholder="Enter admin password" required>
+                </div>
+                <button type="submit" class="unlock-btn">
+                    <i class="fas fa-unlock"></i> Unlock Admin Panel
+                </button>
+            </form>
+            <div class="password-error" id="password-error" style="display: none;">
+                <p><i class="fas fa-exclamation-triangle"></i> Incorrect password. Please try again.</p>
+            </div>
+        </div>
+    </div>
+
+    <header class="main-header">
+        <div class="container">
+            <div class="nav-brand">
+                <h1><i class="fas fa-shield-alt"></i> Admin Panel</h1>
+                <p>Upload files to FileHub</p>
+            </div>
+            <nav class="main-nav">
+                <a href="/" class="nav-link"><i class="fas fa-arrow-left"></i> Back to Site</a>
+            </nav>
+        </div>
+    </header>
+
+    <main class="main-content" id="admin-content" style="display: none;">
+        <div class="container">
+            <div class="upload-form">
+                <h2><i class="fas fa-cloud-upload-alt"></i> Upload New File</h2>
+                <p class="form-description">Select a file to upload to the download center. Supported formats: All file types up to 100MB.</p>
+
+                <form id="upload-form" enctype="multipart/form-data">
+                    <div class="form-group">
+                        <label for="fileInput"><i class="fas fa-file"></i> Select File:</label>
+                        <input type="file" id="fileInput" name="fileInput" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="customName"><i class="fas fa-edit"></i> Custom File Name:</label>
+                        <input type="text" id="customName" name="customName" required placeholder="Enter custom name (without extension)">
+                    </div>
+
+                    <div class="file-info" id="file-info" style="display: none;">
+                        <div class="file-preview">
+                            <i class="fas fa-file" id="file-icon"></i>
+                            <div>
+                                <div class="file-name" id="preview-name"></div>
+                                <div class="file-size" id="preview-size"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="upload-btn" id="upload-btn">
+                        <i class="fas fa-cloud-upload-alt"></i> Upload File
+                    </button>
+                </form>
+
+                <div class="upload-status" id="upload-status"></div>
+            </div>
+
+            <div class="gdrive-admin-section">
+                <h2><i class="fab fa-google-drive"></i> Cloud File Management</h2>
+                <p class="section-description">Add files from various cloud services by providing shareable links</p>
+
+                <div class="gdrive-upload-form">
+                    <div class="gdrive-header">
+                        <i class="fas fa-link gdrive-logo-icon"></i>
+                        <h3>Add Cloud File Link</h3>
+                        <p>Share files from various cloud services by providing a shareable link</p>
+                    </div>
+
+                    <form id="gdrive-form">
+                        <div class="form-group">
+                            <label for="gdrive-link"><i class="fas fa-cloud"></i> File Share Link:</label>
+                            <input type="url" id="gdrive-link" placeholder="Enter shareable link" required>
+                            <small>Make sure the link is set to "Anyone with the link can view"</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="gdrive-custom-name"><i class="fas fa-edit"></i> Custom Name:</label>
+                            <input type="text" id="gdrive-custom-name" placeholder="Enter custom display name" required>
+                        </div>
+
+                        <button type="submit" class="upload-btn">
+                            <i class="fas fa-plus"></i> Add to Collection
+                        </button>
+                    </form>
+                </div>
+
+                <div class="gdrive-files" id="gdrive-files">
+                    <!-- Cloud files will be listed here -->
+                </div>
+            </div>
+
+            <div class="upload-tips">
+                <h3><i class="fas fa-lightbulb"></i> Upload Tips</h3>
+                <ul>
+                    <li><i class="fas fa-check"></i> Maximum file size: 100MB</li>
+                    <li><i class="fas fa-check"></i> All file types are supported</li>
+                    <li><i class="fas fa-check"></i> Files are automatically categorized</li>
+                    <li><i class="fas fa-check"></i> Duplicate files will be overwritten</li>
+                </ul>
+            </div>
+        </div>
+    </main>
+
+    <footer class="main-footer">
+        <div class="container">
+            <p>&copy; 2024 FileHub Admin Panel</p>
+            <p>Secure file management system</p>
+        </div>
+    </footer>
+
+    <script>
+        let gdriveFiles = [];
+        let isAuthenticated = false;
+
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        function getFileIcon(filename) {
+            const ext = filename.split('.').pop().toLowerCase();
+            const iconMap = {
+                'apk': 'fab fa-android',
+                'exe': 'fab fa-windows',
+                'msi': 'fab fa-windows',
+                'dmg': 'fab fa-apple',
+                'pdf': 'far fa-file-pdf',
+                'doc': 'far fa-file-word',
+                'docx': 'far fa-file-word',
+                'xlsx': 'far fa-file-excel',
+                'zip': 'far fa-file-archive',
+                'rar': 'far fa-file-archive',
+                'mp4': 'far fa-file-video',
+                'mp3': 'far fa-file-audio',
+                'jpg': 'far fa-file-image',
+                'png': 'far fa-file-image'
+            };
+            return iconMap[ext] || 'far fa-file';
+        }
+
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleDateString('en-US', { 
+                year: 'numeric', 
+                month: 'short', 
+                day: 'numeric' 
+            });
+        }
+
+        function displayGdriveFiles() {
+            const gdriveFilesDiv = document.getElementById('gdrive-files');
+
+            if (gdriveFiles.length === 0) {
+                gdriveFilesDiv.innerHTML = '<p class="no-gdrive-files">No files added yet. Use the form above to add some!</p>';
+                return;
+            }
+
+            gdriveFilesDiv.innerHTML = gdriveFiles.map(file => `
+                <div class="gdrive-file-card">
+                    <div class="file-header">
+                        <div class="file-icon">
+                            ${file.service === 'Google Drive' ? '<i class="fab fa-google-drive"></i>' : 
+                              file.service === 'Mega' ? '<i class="fas fa-cloud" style="color: #d9272e;"></i>' : 
+                              '<i class="fas fa-link"></i>'}
+                        </div>
+                        <button class="remove-btn" onclick="removeGdriveFile('${file.id}')">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <div class="file-info">
+                        <h3 class="file-name">${file.customName}</h3>
+                        <div class="file-meta">
+                            <span class="file-source"><i class="fas fa-cloud"></i> ${file.service || 'Cloud File'}</span>
+                            <span class="file-date"><i class="fas fa-calendar"></i> ${formatDate(file.dateAdded)}</span>
+                        </div>
+                    </div>
+                    <div class="file-actions">
+                        <a href="${file.directLink}" class="download-btn primary" target="_blank">
+                            <i class="fas fa-external-link-alt"></i> Open in ${file.service || 'New Tab'}
+                        </a>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function extractGdriveFileId(url) {
+            const patterns = [
+                /\/file\/d\/([a-zA-Z0-9-_]+)/,
+                /id=([a-zA-Z0-9-_]+)/,
+                /\/d\/([a-zA-Z0-9-_]+)/
+            ];
+
+            for (const pattern of patterns) {
+                const match = url.match(pattern);
+                if (match) return match[1];
+            }
+            return null;
+        }
+
+        function getCloudServiceInfo(url) {
+            if (url.includes('drive.google.com')) {
+                const fileId = extractGdriveFileId(url);
+                return {
+                    service: 'Google Drive',
+                    directLink: `https://drive.google.com/uc?export=download&id=${fileId}`
+                };
+            } else if (url.includes('mega.nz') || url.includes('mega.co.nz')) {
+                return {
+                    service: 'Mega',
+                    directLink: url
+                };
+            } else {
+                // Generic link handling - just open the link directly
+                return {
+                    service: 'External Link',
+                    directLink: url
+                };
+            }
+        }
+
+        function removeGdriveFile(fileId) {
+            gdriveFiles = gdriveFiles.filter(file => file.id !== fileId);
+            localStorage.setItem('gdriveFiles', JSON.stringify(gdriveFiles));
+            displayGdriveFiles();
+        }
+
+        function loadGdriveFiles() {
+            const stored = localStorage.getItem('gdriveFiles');
+            if (stored) {
+                gdriveFiles = JSON.parse(stored);
+            }
+        }
+
+        async function verifyPassword(password) {
+            try {
+                const response = await fetch('/api/upload', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Admin-Password': password
+                    },
+                    body: JSON.stringify({ test: true })
+                });
+
+                return response.status !== 401;
+            } catch (error) {
+                return false;
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadGdriveFiles();
+            displayGdriveFiles();
+
+            // Password form handler
+            document.getElementById('password-form').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const password = document.getElementById('modal-password').value;
+                const errorDiv = document.getElementById('password-error');
+
+                const isValid = await verifyPassword(password);
+
+                if (isValid) {
+                    isAuthenticated = true;
+                    sessionStorage.setItem('adminPassword', password);
+                    document.getElementById('password-modal').style.display = 'none';
+                    document.getElementById('admin-content').style.display = 'block';
+                    errorDiv.style.display = 'none';
+                } else {
+                    errorDiv.style.display = 'block';
+                    document.getElementById('modal-password').value = '';
+                }
+            });
+
+            // Check if already authenticated
+            const savedPassword = sessionStorage.getItem('adminPassword');
+            if (savedPassword) {
+                verifyPassword(savedPassword).then(isValid => {
+                    if (isValid) {
+                        isAuthenticated = true;
+                        document.getElementById('password-modal').style.display = 'none';
+                        document.getElementById('admin-content').style.display = 'block';
+                    }
+                });
+            }
+
+            // Google Drive form handler
+            document.getElementById('gdrive-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            const link = document.getElementById('gdrive-link').value.trim();
+            const customName = document.getElementById('gdrive-custom-name').value.trim();
+
+            if (!link || !customName) {
+                alert('Please fill in all fields');
+                return;
+            }
+
+            const serviceInfo = getCloudServiceInfo(link);
+
+            const newFile = {
+                id: Date.now().toString(),
+                customName: customName,
+                originalLink: link,
+                directLink: serviceInfo.directLink,
+                service: serviceInfo.service,
+                dateAdded: new Date().toISOString()
+            };
+
+            gdriveFiles.push(newFile);
+            localStorage.setItem('gdriveFiles', JSON.stringify(gdriveFiles));
+
+            // Reset form
+            document.getElementById('gdrive-form').reset();
+
+            // Update display
+            displayGdriveFiles();
+
+            alert('File added successfully!');
+        });
+        });
+
+        // File input preview
+        document.getElementById('fileInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            const fileInfo = document.getElementById('file-info');
+            const fileIcon = document.getElementById('file-icon');
+            const previewName = document.getElementById('preview-name');
+            const previewSize = document.getElementById('preview-size');
+            const customNameInput = document.getElementById('customName');
+
+            if (file) {
+                fileInfo.style.display = 'block';
+                fileIcon.className = getFileIcon(file.name);
+                previewSize.textContent = formatFileSize(file.size);
+
+                // Update preview name when custom name changes
+                function updatePreviewName() {
+                    const customName = customNameInput.value.trim();
+                    const fileExtension = file.name.split('.').pop();
+                    if (customName) {
+                        previewName.textContent = `${customName}.${fileExtension}`;
+                    } else {
+                        previewName.textContent = file.name;
+                    }
+                }
+
+                updatePreviewName();
+                customNameInput.addEventListener('input', updatePreviewName);
+            } else {
+                fileInfo.style.display = 'none';
+            }
+        });
+
+        document.getElementById('upload-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const formData = new FormData();
+            const fileInput = document.getElementById('fileInput');
+            const customNameInput = document.getElementById('customName');
+
+            const statusDiv = document.getElementById('upload-status');
+            const uploadBtn = document.getElementById('upload-btn');
+
+            if (!fileInput.files[0]) {
+                statusDiv.innerHTML = '<p class="error"><i class="fas fa-exclamation-triangle"></i> Please select a file</p>';
+                return;
+            }
+
+            if (!customNameInput.value.trim()) {
+                statusDiv.innerHTML = '<p class="error"><i class="fas fa-exclamation-triangle"></i> Please enter a custom name</p>';
+                return;
+            }
+
+            formData.append('file', fileInput.files[0]);
+            formData.append('password', sessionStorage.getItem('adminPassword'));
+            formData.append('customName', customNameInput.value.trim());
+
+            // Update button state
+            uploadBtn.disabled = true;
+            uploadBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Uploading...';
+            statusDiv.innerHTML = '<p class="info"><i class="fas fa-upload"></i> Uploading file, please wait...</p>';
+
+            try {
+                const response = await fetch('/api/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    statusDiv.innerHTML = '<p class="success"><i class="fas fa-check-circle"></i> File uploaded successfully! It should now appear in the download center.</p>';
+                    document.getElementById('upload-form').reset();
+                    document.getElementById('file-info').style.display = 'none';
+                } else {
+                    statusDiv.innerHTML = `<p class="error"><i class="fas fa-times-circle"></i> Error: ${result.error}</p>`;
+                }
+            } catch (error) {
+                console.error('Upload error:', error);
+                statusDiv.innerHTML = '<p class="error"><i class="fas fa-times-circle"></i> Upload failed. Please try again.</p>';
+            } finally {
+                // Reset button state
+                uploadBtn.disabled = false;
+                uploadBtn.innerHTML = '<i class="fas fa-cloud-upload-alt"></i> Upload File';
+            }
+        });
+    </script>
+
+    <style>
+        .form-description {
+            background: #f7fafc;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 25px;
+            color: #4a5568;
+            border-left: 4px solid #667eea;
+        }
+
+        .upload-form h2 {
+            color: #2d3748;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .file-info {
+            margin-top: 15px;
+            padding: 15px;
+            background: #f7fafc;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .file-preview {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .file-preview i {
+            font-size: 2rem;
+            color: #667eea;
+        }
+
+        .file-name {
+            font-weight: 600;
+            color: #2d3748;
+        }
+
+        .file-size {
+            color: #718096;
+            font-size: 0.9rem;
+        }
+
+        .upload-tips {
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            margin-top: 30px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+        }
+
+        .upload-tips h3 {
+            color: #2d3748;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .upload-tips ul {
+            list-style: none;
+        }
+
+        .upload-tips li {
+            padding: 8px 0;
+            color: #4a5568;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .upload-tips li i {
+            color: #48bb78;
+        }
+
+        .upload-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.3s ease;
+            background: white;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+    </style>
+</body>
+</html>
