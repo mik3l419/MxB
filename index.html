@@ -1,0 +1,302 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MxB - Free File Downloads</title>
+    <link rel="stylesheet" href="/style.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <header class="main-header">
+        <div class="container">
+            <div class="nav-brand">
+                <h1><i class="fas fa-download"></i> MxB</h1>
+                <p>File downloads</p>
+            </div>
+            <nav class="main-nav">
+                <a href="#" class="nav-link active" data-category="apps">Apps🗃️</a>
+                <a href="#" class="nav-link" data-category="documents">Files📑</a>
+                <a href="#" class="nav-link" data-category="gdrive">Cloud🔗</a>
+                <a href="/admin" class="admin-link"><i class="fas fa-shield-alt"></i></a>
+            </nav>
+        </div>
+    </header>
+
+    <main class="main-content">
+        <div class="container">
+            <div class="search-section">
+                <div class="search-bar">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="search-input" placeholder="Search files...">
+                </div>
+                <div class="filter-options">
+                    <select id="sort-select">
+                        <option value="name">Sort by Name</option>
+                        <option value="date">Sort by Date</option>
+                        <option value="size">Sort by Size</option>
+                    </select>
+                </div>
+            </div>
+
+            
+
+            <div class="loading" id="loading">
+                <i class="fas fa-spinner fa-spin"></i>
+                Loading files...
+            </div>
+            
+            <div class="files-grid" id="files-grid" style="display: none;">
+                <!-- Files will be populated here -->
+            </div>
+
+            <div class="gdrive-section" id="gdrive-section" style="display: none;">
+                <div class="gdrive-header">
+                    <i class="fas fa-link gdrive-logo-icon"></i>
+                    <h2><i class="fas fa-link"></i> Cloud Files</h2>
+                    <p>Files shared from various cloud services</p>
+                </div>
+                <div class="gdrive-files" id="gdrive-files-display">
+                    <!-- Google Drive files will be listed here -->
+                </div>
+            </div>
+            
+        </div>
+    </main>
+
+    <footer class="main-footer">
+        <div class="container">
+            <p>&copy; 2025 MxB Downloads. All rights reserved.</p>
+            <li>Safe and secure file downloads</li>
+        </div>
+    </footer>
+
+    <script>
+        let allFiles = [];
+        let filteredFiles = [];
+        let gdriveFiles = [];
+        let currentCategory = 'apps';
+
+        function loadGdriveFiles() {
+            const stored = localStorage.getItem('gdriveFiles');
+            if (stored) {
+                gdriveFiles = JSON.parse(stored);
+            }
+        }
+
+        async function loadFiles() {
+            try {
+                const response = await fetch('/api/files');
+                allFiles = await response.json();
+                
+                loadGdriveFiles();
+                filterAndDisplayFiles();
+                
+            } catch (error) {
+                console.error('Error loading files:', error);
+                document.getElementById('loading').innerHTML = '<i class="fas fa-exclamation-triangle"></i> Error loading files';
+            }
+        }
+
+        function getFileExtension(filename) {
+            return filename.split('.').pop() || '';
+        }
+
+        function getFileIcon(filename) {
+            const ext = getFileExtension(filename).toLowerCase();
+            
+            const iconMap = {
+                'apk': 'fab fa-android',
+                'exe': 'fab fa-windows',
+                'msi': 'fab fa-windows',
+                'dmg': 'fab fa-apple',
+                'deb': 'fab fa-ubuntu',
+                'rpm': 'fab fa-redhat',
+                'pdf': 'far fa-file-pdf',
+                'doc': 'far fa-file-word',
+                'docx': 'far fa-file-word',
+                'xlsx': 'far fa-file-excel',
+                'ppt': 'far fa-file-powerpoint',
+                'zip': 'far fa-file-archive',
+                'rar': 'far fa-file-archive',
+                'mp4': 'far fa-file-video',
+                'avi': 'far fa-file-video',
+                'mkv': 'far fa-file-video',
+                'mp3': 'far fa-file-audio',
+                'wav': 'far fa-file-audio',
+                'jpg': 'far fa-file-image',
+                'png': 'far fa-file-image',
+                'gif': 'far fa-file-image'
+            };
+            
+            return iconMap[ext] || 'far fa-file';
+        }
+
+        function displayGdriveFiles() {
+            const gdriveFilesDiv = document.getElementById('gdrive-files-display');
+            const searchTerm = document.getElementById('search-input').value.toLowerCase();
+            
+            const filteredGdriveFiles = gdriveFiles.filter(file => 
+                file.customName.toLowerCase().includes(searchTerm)
+            );
+            
+            if (filteredGdriveFiles.length === 0) {
+                gdriveFilesDiv.innerHTML = '<p class="no-gdrive-files">No Google Drive files found.</p>';
+                return;
+            }
+            
+            gdriveFilesDiv.innerHTML = filteredGdriveFiles.map(file => `
+                <div class="file-card">
+                    <div class="file-header">
+                        <div class="file-icon">
+                            ${file.service === 'Google Drive' ? '<i class="fab fa-google-drive"></i>' : 
+                              file.service === 'Mega' ? '<i class="fas fa-cloud" style="color: #d9272e;"></i>' : 
+                              '<i class="fas fa-link"></i>'}
+                        </div>
+                        <div class="file-category">${file.service === 'Google Drive' ? 'GDRIVE' : file.service === 'Mega' ? 'MEGA' : 'CLOUD'}</div>
+                    </div>
+                    <div class="file-info">
+                        <h3 class="file-name">${file.customName}</h3>
+                        <div class="file-meta">
+                            <span class="file-source">
+                                ${file.service === 'Google Drive' ? '<i class="fab fa-google-drive"></i>' : 
+                                  file.service === 'Mega' ? '<i class="fas fa-cloud" style="color: #d9272e;"></i>' : 
+                                  '<i class="fas fa-link"></i>'} 
+                                ${file.service || 'Cloud File'}
+                            </span>
+                            <span class="file-date"><i class="fas fa-calendar"></i> ${formatDate(file.dateAdded)}</span>
+                        </div>
+                    </div>
+                    <div class="file-actions">
+                        <a href="${file.directLink}" class="download-btn primary" target="_blank">
+                            <i class="fas fa-external-link-alt"></i> Open in ${file.service || 'New Tab'}
+                        </a>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function filterAndDisplayFiles() {
+            const loading = document.getElementById('loading');
+            const filesGrid = document.getElementById('files-grid');
+            const gdriveSection = document.getElementById('gdrive-section');
+            const searchTerm = document.getElementById('search-input').value.toLowerCase();
+            const sortBy = document.getElementById('sort-select').value;
+            
+            loading.style.display = 'none';
+            
+            if (currentCategory === 'gdrive') {
+                filesGrid.style.display = 'none';
+                gdriveSection.style.display = 'block';
+                displayGdriveFiles();
+                return;
+            } else {
+                filesGrid.style.display = 'grid';
+                gdriveSection.style.display = 'none';
+            }
+            
+            // Filter by category and search term
+            filteredFiles = allFiles.filter(file => {
+                const matchesCategory = file.category === currentCategory;
+                const matchesSearch = file.name.toLowerCase().includes(searchTerm);
+                return matchesCategory && matchesSearch;
+            });
+            
+            // Sort files
+            filteredFiles.sort((a, b) => {
+                switch(sortBy) {
+                    case 'date':
+                        return new Date(b.created_at) - new Date(a.created_at);
+                    case 'size':
+                        return b.size - a.size;
+                    default:
+                        return a.name.localeCompare(b.name);
+                }
+            });
+            
+            // Show message if no files found
+            if (filteredFiles.length === 0) {
+                filesGrid.innerHTML = '<div class="no-files-message"><i class="fas fa-folder-open"></i><p>No files found in this category.</p></div>';
+                return;
+            }
+            
+            filesGrid.innerHTML = filteredFiles.map(file => `
+                <div class="file-card">
+                    <div class="file-header">
+                        <div class="file-icon">
+                            <i class="${getFileIcon(file.name)}"></i>
+                        </div>
+                        <div class="file-category">${file.category.toUpperCase()}</div>
+                    </div>
+                    <div class="file-info">
+                        <h3 class="file-name">${file.name.replace(/\.[^/.]+$/, '')}</h3>
+                        <div class="file-meta">
+                            <span class="file-size"><i class="fas fa-hdd"></i> ${formatFileSize(file.size)}</span>
+                            <span class="file-date"><i class="fas fa-calendar"></i> ${formatDate(file.created_at)}</span>
+                            <span class="file-ext">.${getFileExtension(file.name).toUpperCase()}</span>
+                        </div>
+                    </div>
+                    <div class="file-actions">
+                        <a href="${file.download_url}" class="download-btn primary" download>
+                            <i class="fas fa-download"></i> Download
+                        </a>
+                        <button class="info-btn" onclick="showFileInfo('${file.name.replace(/\.[^/.]+$/, '')}', '${formatFileSize(file.size)}', '${formatDate(file.created_at)}', '${getFileExtension(file.name)}')">
+                            <i class="fas fa-info-circle"></i>
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        
+        
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleDateString('en-US', { 
+                year: 'numeric', 
+                month: 'short', 
+                day: 'numeric' 
+            });
+        }
+
+        function showFileInfo(name, size, date, ext) {
+            alert(`File Information:\n\nName: ${name}\nSize: ${size}\nDate: ${date}\nType: ${ext.toUpperCase()} file`);
+        }
+
+        
+        
+        // Event listeners
+        document.addEventListener('DOMContentLoaded', () => {
+            loadFiles();
+            
+            // Category navigation
+            document.querySelectorAll('.nav-link').forEach(link => {
+                link.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    
+                    document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+                    link.classList.add('active');
+                    
+                    currentCategory = link.dataset.category;
+                    filterAndDisplayFiles();
+                });
+            });
+            
+            // Search functionality
+            document.getElementById('search-input').addEventListener('input', filterAndDisplayFiles);
+            
+            // Sort functionality
+            document.getElementById('sort-select').addEventListener('change', filterAndDisplayFiles);
+        });
+    </script>
+</body>
+</html>
